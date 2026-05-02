@@ -4,9 +4,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/malamsyah/leakfix/internal/plan"
 )
+
+// RedactedPreview returns a one-line, redacted preview of a finding's
+// secret value safe to embed in any user-facing output. Multi-line
+// snippets (e.g. PEM blocks) are collapsed to the first non-empty line so
+// the report stays tabular.
+func RedactedPreview(secret string) string {
+	if secret == "" {
+		return ""
+	}
+	first := secret
+	if i := strings.IndexAny(secret, "\r\n"); i >= 0 {
+		first = secret[:i]
+	}
+	first = strings.TrimSpace(first)
+	if first == "" {
+		first = strings.TrimSpace(secret)
+	}
+	return plan.Placeholder(first)
+}
 
 // WriteMarkdown writes a human-readable scan report to w. Secrets are
 // redacted before rendering.
@@ -24,6 +44,9 @@ func WriteMarkdown(w io.Writer, repoPath string, findings []Finding, meta Meta) 
 	for i, f := range findings {
 		fmt.Fprintf(w, "## %d. %s\n", i+1, red(f.RuleID))
 		fmt.Fprintf(w, "- finding id: `%s`\n", red(f.ID))
+		if preview := RedactedPreview(f.Secret); preview != "" {
+			fmt.Fprintf(w, "- redacted value: `%s`\n", preview)
+		}
 		if f.Validated {
 			fmt.Fprintln(w, "- validated: yes")
 		}

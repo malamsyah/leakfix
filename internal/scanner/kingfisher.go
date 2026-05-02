@@ -17,12 +17,70 @@ import (
 // Scanner is a thin wrapper around the kingfisher CLI.
 type Scanner struct {
 	binary string
+	// ProgressWriter receives kingfisher's stderr (per-repo cloning /
+	// scanning progress). Defaults to os.Stderr when nil. Tests may set
+	// it to io.Discard to silence chatter.
+	ProgressWriter io.Writer
 }
 
 func New() *Scanner { return &Scanner{binary: "kingfisher"} }
 
 // NewWithBinary lets tests substitute a custom path or stub.
 func NewWithBinary(path string) *Scanner { return &Scanner{binary: path} }
+
+// progressWriter returns the configured ProgressWriter or os.Stderr.
+func (s *Scanner) progressWriter() io.Writer {
+	if s.ProgressWriter != nil {
+		return s.ProgressWriter
+	}
+	return os.Stderr
+}
+
+// runKingfisher streams stderr to the progress writer in real time while
+// capturing stdout for the caller. On non-zero exit, the last ~64KB of
+// stderr is surfaced as the error message — kingfisher returns non-zero
+// when findings are present (e.g. exit 200), so an empty stdout is the
+// only signal that the run actually failed.
+func (s *Scanner) runKingfisher(ctx context.Context, args []string, env []string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, s.binary, args...)
+	cmd.Env = env
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	var stderrTail tailBuffer
+	cmd.Stderr = io.MultiWriter(s.progressWriter(), &stderrTail)
+	err := cmd.Run()
+	out := stdout.Bytes()
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			if len(bytes.TrimSpace(out)) == 0 {
+				return nil, fmt.Errorf("kingfisher: %s", strings.TrimSpace(stderrTail.String()))
+			}
+		} else {
+			return nil, fmt.Errorf("kingfisher: %w", err)
+		}
+	}
+	return out, nil
+}
+
+// tailBuffer keeps the last N bytes written to it. Used to surface
+// kingfisher's stderr in error messages without unbounded memory growth.
+type tailBuffer struct {
+	max int
+	buf []byte
+}
+
+func (t *tailBuffer) Write(p []byte) (int, error) {
+	if t.max == 0 {
+		t.max = 64 * 1024
+	}
+	t.buf = append(t.buf, p...)
+	if len(t.buf) > t.max {
+		t.buf = t.buf[len(t.buf)-t.max:]
+	}
+	return len(p), nil
+}
+
+func (t *tailBuffer) String() string { return string(t.buf) }
 
 // isGitHubURL returns true when s already points at github.com, ignoring
 // scheme. False for the malformed local-tmpdir URLs kingfisher 1.x emits
@@ -123,21 +181,9 @@ func (s *Scanner) Scan(ctx context.Context, repoPath string, opts Options) ([]Fi
 	}
 	args = append(args, repoPath)
 
-	cmd := exec.CommandContext(ctx, s.binary, args...)
-	out, err := cmd.Output()
+	out, err := s.runKingfisher(ctx, args, os.Environ())
 	if err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) {
-			// kingfisher 1.x exits non-zero (e.g. 200) when findings are
-			// present. That is NOT an error from our perspective — the
-			// stdout still contains valid JSON. Surface only when stdout
-			// is empty (a true failure).
-			if len(bytes.TrimSpace(out)) == 0 {
-				return nil, Meta{}, fmt.Errorf("kingfisher: %s", strings.TrimSpace(string(ee.Stderr)))
-			}
-		} else {
-			return nil, Meta{}, fmt.Errorf("kingfisher: %w", err)
-		}
+		return nil, Meta{}, err
 	}
 	version, _ := s.Version(ctx)
 	findings, err := ParseFindings(out)
@@ -196,18 +242,9 @@ func (s *Scanner) ScanGitHub(ctx context.Context, opts GitHubScanOptions) ([]Fin
 		args = append(args, "--exclude", seg)
 	}
 
-	cmd := exec.CommandContext(ctx, s.binary, args...)
-	cmd.Env = withGitHubAuth(ctx, os.Environ())
-	out, err := cmd.Output()
+	out, err := s.runKingfisher(ctx, args, withGitHubAuth(ctx, os.Environ()))
 	if err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) {
-			if len(bytes.TrimSpace(out)) == 0 {
-				return nil, Meta{}, fmt.Errorf("kingfisher: %s", strings.TrimSpace(string(ee.Stderr)))
-			}
-		} else {
-			return nil, Meta{}, fmt.Errorf("kingfisher: %w", err)
-		}
+		return nil, Meta{}, err
 	}
 	version, _ := s.Version(ctx)
 	if opts.ListOnly {

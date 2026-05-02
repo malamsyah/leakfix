@@ -140,7 +140,7 @@ func newScanOrgCmd() *cobra.Command {
 	cmd.Flags().StringVar(&apiURL, "api-url", "", "override the GitHub API URL (e.g. for GitHub Enterprise)")
 	cmd.Flags().StringSliceVar(&excludeRepos, "exclude-repo", nil, "skip these repos (format: owner/repo, repeatable)")
 	cmd.Flags().StringVar(&format, "format", "md", "output format: md|json|sarif")
-	cmd.Flags().StringVar(&outputPath, "output", "", "write to file instead of stdout")
+	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "write to file instead of stdout")
 	cmd.Flags().BoolVar(&strict, "strict", false, "exit non-zero if any finding is present")
 	cmd.Flags().BoolVar(&includeTestFiles, "include-test-files", false, "include findings in obvious test paths (testdata/, _test.go, fixtures/, ...)")
 	cmd.Flags().BoolVar(&includeDummySecrets, "include-dummy-secrets", false, "include findings whose value contains EXAMPLE/DUMMY/FAKE/PLACEHOLDER markers")
@@ -175,6 +175,9 @@ func writeOrgMarkdown(w io.Writer, owners []string, findings []scanner.Finding, 
 		fmt.Fprintf(w, "## %s — %d finding(s)\n\n", repo, len(groups[repo]))
 		for _, f := range groups[repo] {
 			fmt.Fprintf(w, "- `%s`", f.RuleID)
+			if preview := scanner.RedactedPreview(f.Secret); preview != "" {
+				fmt.Fprintf(w, " · `%s`", preview)
+			}
 			if len(f.Locations) > 0 {
 				loc := f.Locations[0]
 				fmt.Fprintf(w, " · `%s:%d`", loc.File, loc.Line)

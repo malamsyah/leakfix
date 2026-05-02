@@ -160,7 +160,7 @@ func newRemediateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&confidence, "confidence", "medium", "kingfisher confidence threshold: low|medium|high")
 	cmd.Flags().StringVar(&baseBranch, "base-branch", "", "base branch for the PR (default: repo default branch)")
 	cmd.Flags().BoolVar(&noIssue, "no-issue", false, "skip tracking issue creation")
-	cmd.Flags().StringVar(&outputPath, "output", "", "also write plan/report to file")
+	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "also write plan/report to file")
 	cmd.Flags().BoolVar(&includeTestFiles, "include-test-files", false, "include findings in obvious test paths (testdata/, _test.go, fixtures/, ...)")
 	cmd.Flags().BoolVar(&includeDummySecrets, "include-dummy-secrets", false, "include findings whose value contains EXAMPLE/DUMMY/FAKE/PLACEHOLDER markers")
 	cmd.Flags().BoolVar(&noFilter, "no-filter", false, "shorthand for --include-test-files --include-dummy-secrets")

@@ -98,7 +98,7 @@ func newScanCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&accessMap, "access-map", false, "run kingfisher with --access-map (slower; needs cloud creds)")
 	cmd.Flags().StringVar(&format, "format", "md", "output format: md|json|sarif")
-	cmd.Flags().StringVar(&outputPath, "output", "", "write to file instead of stdout")
+	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "write to file instead of stdout")
 	cmd.Flags().StringVar(&confidence, "confidence", "medium", "kingfisher confidence threshold: low|medium|high")
 	cmd.Flags().BoolVar(&strict, "strict", false, "exit non-zero if any finding is present")
 	cmd.Flags().BoolVar(&includeTestFiles, "include-test-files", false, "include findings in obvious test paths (testdata/, _test.go, fixtures/, ...)")

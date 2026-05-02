@@ -120,7 +120,7 @@ func TestIsVendoredPath_Cases(t *testing.T) {
 		{".venv/lib/python3.12/site-packages/foo.py", true},
 		{"venv/Lib/foo.py", true},
 		{"src/__pycache__/main.cpython-312.pyc", true},
-		{".git/config", true},                 // ephemeral CI tokens live here
+		{".git/config", true}, // ephemeral CI tokens live here
 		{".git/refs/remotes/origin/main", true},
 		{"./.git/config", true},
 		{"build/output.bin", false}, // build/ intentionally NOT in the list

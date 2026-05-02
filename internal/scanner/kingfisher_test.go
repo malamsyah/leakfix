@@ -231,6 +231,22 @@ func TestCheckKingfisherVersion(t *testing.T) {
 	}
 }
 
+func TestRedactedPreview(t *testing.T) {
+	cases := []struct {
+		secret string
+		want   string
+	}{
+		{"AKIAIOSFODNN7EXAMPLE", "AKIA…[REDACTED]…MPLE"},
+		{"abc", "[REDACTED]"},
+		{"", ""},
+		{"-----BEGIN PRIVATE KEY-----\nLINE2\nLINE3", scanner.RedactedPreview("-----BEGIN PRIVATE KEY-----")}, // multi-line collapses to first line
+		{"   key123longvalueABC   ", "key1…[REDACTED]…eABC"},                                                  // surrounding whitespace stripped before placeholder math
+	}
+	for _, tc := range cases {
+		assert.Equal(t, tc.want, scanner.RedactedPreview(tc.secret), "secret=%q", tc.secret)
+	}
+}
+
 func TestSecretValues_OmitsEmpty(t *testing.T) {
 	got := scanner.SecretValues([]scanner.Finding{
 		{Secret: "a"},

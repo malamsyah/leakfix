@@ -32,6 +32,7 @@ func TestWriteOrgMarkdown_GroupsByRepo(t *testing.T) {
 	findings := []scanner.Finding{
 		{
 			RuleID:    "kingfisher.aws.2",
+			Secret:    "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY1",
 			Validated: true,
 			Locations: []scanner.Location{{
 				File:      "config/dev.go",
@@ -81,4 +82,8 @@ func TestWriteOrgMarkdown_GroupsByRepo(t *testing.T) {
 	assert.Contains(t, out, "validated as live")
 	assert.Contains(t, out, "[view on GitHub](https://github.com/anthropics/repo-a/blob/abc1234/config/dev.go#L42)")
 	assert.Contains(t, out, "[commit abc1234](https://github.com/anthropics/repo-a/commit/abc1234)")
+
+	// Redacted preview is shown (never the literal secret).
+	assert.Contains(t, out, "wJal…[REDACTED]…KEY1")
+	assert.NotContains(t, out, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY1")
 }
