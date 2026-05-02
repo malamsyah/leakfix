@@ -48,12 +48,16 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Install kingfisher
+        # Extract OUTSIDE the workspace so the binary itself doesn't get
+        # picked up by self-scan as a giant pile of false-positives.
         run: |
           set -euo pipefail
-          curl -fsSL -o kingfisher.tgz \
+          tmp=$(mktemp -d)
+          curl -fsSL -o "$tmp/kingfisher.tgz" \
             "https://github.com/mongodb/kingfisher/releases/latest/download/kingfisher-linux-x64.tgz"
-          tar -xzf kingfisher.tgz
-          sudo install -m 755 kingfisher /usr/local/bin/kingfisher
+          tar -xzf "$tmp/kingfisher.tgz" -C "$tmp"
+          sudo install -m 755 "$tmp/kingfisher" /usr/local/bin/kingfisher
+          rm -rf "$tmp"
           kingfisher --version
       - name: Self-scan (no findings allowed)
         run: make self-scan
