@@ -230,7 +230,9 @@ var dummyMarkers = []string{
 }
 
 // IsDummySecret returns true when the value looks like a placeholder /
-// example credential rather than a real leaked one.
+// example credential rather than a real leaked one. Includes URIs pointing
+// at localhost-style hosts (postgres://user:pw@localhost/...), which are
+// almost always local-dev fixtures rather than real leaks.
 func IsDummySecret(secret string) bool {
 	if secret == "" {
 		return false
@@ -238,6 +240,39 @@ func IsDummySecret(secret string) bool {
 	upper := strings.ToUpper(secret)
 	for _, m := range dummyMarkers {
 		if strings.Contains(upper, strings.ToUpper(m)) {
+			return true
+		}
+	}
+	return IsLocalDevCredential(secret)
+}
+
+// localHostPatterns enumerates substrings that, when present alongside a
+// URI scheme (i.e. `://`), strongly imply a local-dev credential.
+var localHostPatterns = []string{
+	"@localhost",
+	"@127.0.0.1",
+	"@0.0.0.0",
+	"@[::1]",
+	"@host.docker.internal",
+	"@db:",      // common docker-compose service name
+	"@postgres:", // ditto
+	"@mysql:",    // ditto
+	"@redis:",    // ditto
+	"@mongo:",    // ditto
+}
+
+// IsLocalDevCredential returns true when secret looks like a connection
+// string whose host is a loopback address, a Docker service name, or
+// otherwise unmistakably local. The check requires a URI scheme delimiter
+// (`://`) so plain English text containing the word "localhost" doesn't
+// trip it.
+func IsLocalDevCredential(secret string) bool {
+	if !strings.Contains(secret, "://") {
+		return false
+	}
+	lower := strings.ToLower(secret)
+	for _, p := range localHostPatterns {
+		if strings.Contains(lower, p) {
 			return true
 		}
 	}

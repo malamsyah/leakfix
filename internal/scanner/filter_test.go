@@ -168,8 +168,25 @@ func TestIsDummySecret_Cases(t *testing.T) {
 		{"sk-XXXXXXXXXXXXXXXXXXXXXXXXX", true},
 		{"sk-ant-RealLookingApiKeyAbCdEfGhIjKlMn", false},
 		{"", false},
+		// localhost / docker-compose URIs are local-dev creds
+		{"postgres://postgres:mlink@localhost:6432/mlink?sslmode=disable", true},
+		{"mysql://root:secret@127.0.0.1:3306/app", true},
+		{"redis://:devpass@redis:6379/0", true},
+		{"mongodb://admin:admin@host.docker.internal:27017", true},
+		{"postgres://user:pw@db:5432/app", true},
+		// Real-looking remote DBs must NOT match
+		{"postgres://user:pw@prod-db.us-east-1.rds.amazonaws.com:5432/app", false},
+		{"mysql://app:realprodpass@10.0.5.20:3306/billing", false},
 	}
 	for _, tc := range cases {
 		assert.Equal(t, tc.want, scanner.IsDummySecret(tc.secret), "secret=%q", tc.secret)
 	}
+}
+
+func TestIsLocalDevCredential_RequiresURIScheme(t *testing.T) {
+	// A bare mention of "localhost" in plain text must NOT trip the check —
+	// only URIs with embedded credentials should be treated as local-dev.
+	assert.False(t, scanner.IsLocalDevCredential("see localhost docs at https://example.com"))
+	assert.False(t, scanner.IsLocalDevCredential("localhost"))
+	assert.True(t, scanner.IsLocalDevCredential("postgres://postgres:secret@localhost:5432/db"))
 }
