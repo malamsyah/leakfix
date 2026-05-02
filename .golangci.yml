@@ -1,0 +1,33 @@
+run:
+  go: "1.22"
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosec
+    - gocritic
+    - revive
+    - misspell
+    - bodyclose
+
+linters-settings:
+  gosec:
+    excludes:
+      - G204  # Subprocess launched with variable — we shell out to kingfisher and git-filter-repo
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck
+    # PlanItem and PRRenderContext are SPEC-mandated names; allow the stutter.
+    - path: internal/plan/plan\.go
+      text: "type name will be used as plan\\.PlanItem"
+    - path: internal/render/render\.go
+      text: "type name will be used as render\\.(PRRenderContext|IssueRenderContext|ReportRenderContext)"

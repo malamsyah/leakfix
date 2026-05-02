@@ -1,0 +1,8 @@
+.claude
+vendor/
+bin/
+dist/
+coverage.out
+*.test
+*.out
+.env

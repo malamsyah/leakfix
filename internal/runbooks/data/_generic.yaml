@@ -1,0 +1,19 @@
+id: _generic
+display_name: Unknown / Unsupported Provider
+kingfisher_rules: []
+severity_default: high
+revocation:
+  console_url: ""
+  api_command: ""
+  steps:
+    - "Identify the provider this credential belongs to"
+    - "Locate the credential in the provider's admin console"
+    - "Revoke or rotate the credential per the provider's documentation"
+    - "Update any consumers (CI, deployed services, local env)"
+    - "If possible, audit recent usage logs for unauthorized access"
+replacement_pattern: env_var
+env_var_suggested_name: SECRET_VALUE
+notes: |
+  No bundled runbook matched this finding's detection rule(s). Please file
+  an issue at https://github.com/malamsyah/leakfix/issues with the rule ID
+  so a provider-specific runbook can be added.

@@ -1,0 +1,31 @@
+# Secret leak remediation tracker
+
+`leakfix` detected {{len .Plan.Items}} secret leak(s).{{if .PRNumber}} PR #{{.PRNumber}} contains the code refactor.{{end}} **This issue tracks the manual work.**
+
+## Per-finding checklist
+{{range $i, $item := .Plan.Items}}
+### {{add $i 1}}. {{$item.DisplayName}} — `{{$item.FindingID}}`
+
+- [ ] Key revoked
+- [ ] Replacement key generated
+- [ ] CI secret updated
+- [ ] Deployed environments updated
+- [ ] Usage audited (if logs available)
+{{if $.PRNumber}}- [ ] PR #{{$.PRNumber}} merged
+{{end}}
+{{end}}
+
+## Decision: rewrite history?
+
+The leaked credentials remain in git history. Rewriting history removes them, but has side effects (commit SHAs change, signatures dropped, contributors must re-clone).
+
+**leakfix's recommendation:** if all keys are revoked, history rewrite is usually unnecessary. Rewrite only if:
+
+- The repository is or will become public, AND
+- Some leaked credentials cannot be revoked (rare)
+
+To rewrite, run `leakfix remediate <repo> --apply --rewrite-history`.
+
+---
+
+🤖 Created by [leakfix](https://github.com/malamsyah/leakfix).{{if .PRNumber}} PR: #{{.PRNumber}}{{end}}

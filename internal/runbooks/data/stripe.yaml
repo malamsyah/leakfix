@@ -1,0 +1,24 @@
+id: stripe_api_key
+display_name: Stripe API Key
+kingfisher_rules:
+  - kingfisher.stripe
+severity_default: critical
+revocation:
+  console_url: https://dashboard.stripe.com/apikeys
+  api_command: |
+    # Roll restricted keys via the dashboard:
+    # https://dashboard.stripe.com/apikeys
+  steps:
+    - "Open https://dashboard.stripe.com/apikeys and locate the leaked key"
+    - "Click 'Roll key' (rotates the secret immediately)"
+    - "Update CI / deployment secret stores with the new value"
+    - "Update local .env and any developer environments"
+    - "Use Stripe's events log to audit recent API activity for the old key"
+replacement_pattern: env_var
+env_var_suggested_name: STRIPE_SECRET_KEY
+secret_manager_recommendation:
+  - Stripe restricted keys (per-service)
+  - 1Password / Doppler
+notes: |
+  Live (sk_live_) and test (sk_test_) keys are both detected; rotate both even
+  if only one was leaked.

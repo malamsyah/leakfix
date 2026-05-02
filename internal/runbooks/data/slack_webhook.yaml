@@ -1,0 +1,25 @@
+id: slack_webhook
+display_name: Slack Incoming Webhook
+kingfisher_rules:
+  - kingfisher.slack
+  - kingfisher.slack.webhook
+severity_default: high
+revocation:
+  console_url: https://api.slack.com/apps
+  api_command: |
+    # Slack does not expose a programmatic webhook revoke endpoint.
+    # Disable the incoming-webhook integration in the app's settings page.
+  steps:
+    - "Open https://api.slack.com/apps and select the app that owns this webhook"
+    - "Go to 'Incoming Webhooks' and remove the leaked URL"
+    - "Generate a replacement webhook for any consumers that still need posting access"
+    - "Update CI / deployed services with the new webhook URL"
+    - "Audit the channel for unexpected messages since the leak"
+replacement_pattern: env_var
+env_var_suggested_name: SLACK_WEBHOOK_URL
+secret_manager_recommendation:
+  - Slack app settings
+  - 1Password
+notes: |
+  Slack webhooks have no public api revoke; the only way to invalidate is to
+  delete the webhook in the Slack admin UI.

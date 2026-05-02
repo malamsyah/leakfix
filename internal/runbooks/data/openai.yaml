@@ -1,0 +1,24 @@
+id: openai_api_key
+display_name: OpenAI API Key
+kingfisher_rules:
+  - kingfisher.openai
+severity_default: high
+revocation:
+  console_url: https://platform.openai.com/api-keys
+  api_command: |
+    # OpenAI does not expose a public API to delete keys.
+    # Use the dashboard: https://platform.openai.com/api-keys
+  steps:
+    - "Open https://platform.openai.com/api-keys"
+    - "Locate the leaked key and click 'Revoke'"
+    - "Create a replacement key (use a project-scoped key where possible)"
+    - "Update consumers: CI secret stores, deployed services, local .env"
+    - "Review usage at https://platform.openai.com/usage for unexpected calls"
+replacement_pattern: env_var
+env_var_suggested_name: OPENAI_API_KEY
+secret_manager_recommendation:
+  - OpenAI project-scoped keys
+  - 1Password / Doppler
+notes: |
+  Project keys (sk-proj-...) and user keys (sk-...) are both detected. Prefer
+  project-scoped keys for new integrations.

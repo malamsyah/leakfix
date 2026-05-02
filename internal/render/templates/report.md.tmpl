@@ -1,0 +1,40 @@
+# leakfix execution report
+
+Repo: `{{.Plan.RepoPath}}`
+Branch: `{{.BranchName}}`
+{{if .PRURL}}Pull request: {{.PRURL}}{{end}}
+{{if .IssueURL}}Tracking issue: {{.IssueURL}}{{end}}
+
+## Findings remediated: {{len .Plan.Items}}
+
+{{range $i, $item := .Plan.Items}}
+- {{add $i 1}}. **{{$item.DisplayName}}** — finding `{{$item.FindingID}}` ({{len $item.Locations}} location(s))
+{{- end}}
+
+{{if .Failures}}
+## ⚠️ Could not apply automatically
+
+The following code edits failed at apply-time and were skipped. The PR was still opened with the edits that succeeded.
+
+{{range $f := .Failures}}
+- `{{$f.File}}` — {{$f.Reason}}
+{{- end}}
+{{end}}
+{{if .Plan.HistoryRewrite}}
+## Optional: rewrite history
+
+```bash
+{{.Plan.HistoryRewrite.Command}}
+```
+
+leakfix did **not** execute this. Force-push remains your call.
+{{end}}
+---
+
+## Reminder: leakfix did NOT
+
+- Revoke any leaked credentials
+- Force-push the rewritten history
+- Merge the pull request
+
+Those remain your responsibility.

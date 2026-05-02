@@ -1,0 +1,73 @@
+# Remediation plan for {{.RepoPath}}
+
+Generated: {{.GeneratedAt.Format "2006-01-02 15:04:05 UTC"}}
+leakfix {{.LeakfixVer}} · kingfisher {{default .KingfisherVer "unknown"}}
+
+## Summary
+
+- **Findings:** {{len .Items}}
+- **Critical:** {{count_severity .Items "critical"}}
+- **High:** {{count_severity .Items "high"}}
+- **Validated (live) credentials:** {{count_validated .Items}}
+{{range $i, $item := .Items}}
+---
+
+## {{add $i 1}}. {{$item.DisplayName}}
+{{range $loc := $item.Locations}}
+- `{{$loc.File}}:{{$loc.Line}}`{{if $loc.BlobURL}} — [view on GitHub]({{$loc.BlobURL}}){{end}}{{if $loc.CommitURL}} · [commit]({{$loc.CommitURL}}){{end}}
+{{- end}}
+
+**Severity:** {{$item.Severity}}{{if $item.Validated}} (validated as live by Kingfisher){{end}}
+{{if $item.AccessMap}}**Blast radius:** {{$item.AccessMap.Identity}} — permissions: {{join $item.AccessMap.Permissions ", "}}{{end}}
+
+### Revocation steps
+{{range $step := $item.RevocationSteps}}
+1. {{$step}}
+{{- end}}
+{{if $item.ConsoleURL}}
+**Console:** {{$item.ConsoleURL}}
+{{- end}}
+
+### Proposed code changes
+{{range $edit := $item.CodeEdits}}
+**`{{$edit.File}}`**:
+
+```diff
+- {{$edit.OldContent}}
++ {{$edit.NewContent}}
+```
+{{- end}}
+{{if $item.CodeEdits}}
+Replace the literal with `{{(index $item.CodeEdits 0).EnvVarName}}`. Set this in your secret manager and CI environment.
+{{- end}}
+
+### Why this plan
+
+{{$item.AgentRationale}}
+{{end}}
+{{if .HistoryRewrite}}
+---
+
+## ⚠️ Optional: rewrite history
+
+```bash
+{{.HistoryRewrite.Command}}
+```
+
+### Side effects
+{{range $effect := .HistoryRewrite.SideEffects}}
+- {{$effect}}
+{{- end}}
+
+### After running
+{{range $i, $step := .HistoryRewrite.PostSteps}}
+{{add $i 1}}. {{$step}}
+{{- end}}
+{{end}}
+---
+
+## What leakfix did NOT do
+
+- ❌ Revoke any keys (do this yourself using the steps above)
+- ❌ Push or force-push any branches
+- ❌ Modify your repo (this was a dry run; re-run with `--apply` to create a PR)

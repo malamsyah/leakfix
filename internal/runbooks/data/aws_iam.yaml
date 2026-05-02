@@ -1,0 +1,26 @@
+id: aws_iam_access_key
+display_name: AWS IAM Access Key
+kingfisher_rules:
+  - kingfisher.aws
+  - kingfisher.aws.access_key
+  - kingfisher.aws.secret_access_key
+severity_default: critical
+revocation:
+  console_url: https://console.aws.amazon.com/iam/home#/users
+  api_command: |
+    aws iam delete-access-key \
+      --access-key-id <ACCESS_KEY_ID> \
+      --user-name <USERNAME>
+  steps:
+    - "Identify the IAM user that owns this key (use STS GetCallerIdentity if access_map is empty)"
+    - "Generate a replacement key via the IAM console or `aws iam create-access-key`"
+    - "Update consumers: CI secret stores, deployed services, local .env files"
+    - "Delete the leaked key with `aws iam delete-access-key`"
+    - "Audit CloudTrail for unauthorized usage between leak time and revocation"
+replacement_pattern: env_var
+env_var_suggested_name: AWS_ACCESS_KEY_ID
+secret_manager_recommendation:
+  - AWS Secrets Manager
+  - AWS Systems Manager Parameter Store
+notes: |
+  AWS keys are high-blast-radius. Always check CloudTrail.

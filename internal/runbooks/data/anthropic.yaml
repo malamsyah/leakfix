@@ -1,0 +1,24 @@
+id: anthropic_api_key
+display_name: Anthropic API Key
+kingfisher_rules:
+  - kingfisher.anthropic
+severity_default: high
+revocation:
+  console_url: https://console.anthropic.com/settings/keys
+  api_command: |
+    # Anthropic does not expose a public API to delete keys.
+    # Use the console: https://console.anthropic.com/settings/keys
+  steps:
+    - "Open https://console.anthropic.com/settings/keys"
+    - "Find the leaked key (sk-ant-…) and click 'Disable'"
+    - "Generate a replacement key with descriptive metadata"
+    - "Update consumers: CI secret stores, deployed services, local .env"
+    - "Audit usage in the Anthropic console for unexpected calls"
+replacement_pattern: env_var
+env_var_suggested_name: ANTHROPIC_API_KEY
+secret_manager_recommendation:
+  - 1Password / Doppler
+  - Cloud-provider secret managers (AWS Secrets Manager, GCP Secret Manager)
+notes: |
+  Anthropic keys carry the entire account's spending limit. Treat as critical
+  if usage limits aren't tightly capped.

@@ -1,0 +1,26 @@
+id: github_pat
+display_name: GitHub Personal Access Token
+kingfisher_rules:
+  - kingfisher.github
+  - kingfisher.github.pat
+  - kingfisher.github.fine_grained_pat
+  - kingfisher.github.token
+severity_default: critical
+revocation:
+  console_url: https://github.com/settings/tokens
+  api_command: |
+    # GitHub does not expose a public API to revoke tokens belonging to a user.
+    # Revoke via UI: https://github.com/settings/tokens
+  steps:
+    - "Open https://github.com/settings/tokens (or fine-grained tokens) and locate the leaked token"
+    - "Click 'Delete' or 'Revoke' on the token"
+    - "Generate a replacement token with the minimum scopes required"
+    - "Update consumers: CI secret stores, local .env, gh CLI auth (`gh auth login`)"
+    - "Audit recent token activity in https://github.com/settings/security-log"
+replacement_pattern: env_var
+env_var_suggested_name: GITHUB_TOKEN
+secret_manager_recommendation:
+  - GitHub Actions secrets
+  - 1Password / Doppler
+notes: |
+  Both classic (ghp_*) and fine-grained (github_pat_*) tokens are handled here.
