@@ -83,11 +83,15 @@ func keepNonTestLocations(locs []Location) []Location {
 	return out
 }
 
-// vendoredPathSegments are directory names that hold third-party code or
-// build artefacts. Findings inside these paths are not leakfix's job to
-// remediate — they belong to upstream dependencies or to ephemeral build
-// outputs. Match is case-insensitive.
+// vendoredPathSegments are directory names that hold third-party code,
+// build artefacts, or runtime metadata that leakfix should never scan.
+// Findings inside these paths are not leakfix's job to remediate — they
+// belong to upstream dependencies, ephemeral build outputs, or
+// runtime-managed state (e.g., GitHub Actions writes a short-lived token
+// into .git/config that kingfisher would otherwise flag every CI run).
+// Match is case-insensitive.
 var vendoredPathSegments = []string{
+	".git",
 	"vendor",
 	"node_modules",
 	".venv",
