@@ -9,6 +9,12 @@
 > **Status:** alpha. Works on a single repo. GitHub-only. Six providers bundled.
 > Built in the open. Use against forks before pointing it at anything important.
 
+## Overview
+
+https://storage.googleapis.com/mindgraph-public-assets/leakfix_full.mp4
+
+<video src="https://storage.googleapis.com/mindgraph-public-assets/leakfix_full.mp4" controls width="100%"></video>
+
 ---
 
 ## Why this exists
