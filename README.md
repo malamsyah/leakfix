@@ -11,9 +11,7 @@
 
 ## Overview
 
-https://storage.googleapis.com/mindgraph-public-assets/leakfix_full.mp4
-
-<video src="https://storage.googleapis.com/mindgraph-public-assets/leakfix_full.mp4" controls width="100%"></video>
+https://github.com/user-attachments/assets/ef2c43ab-780e-41ec-aa76-c0af243df543
 
 ---
 
