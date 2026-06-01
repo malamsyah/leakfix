@@ -55,7 +55,7 @@ func TestPlanForFindings_HappyPath(t *testing.T) {
 				return mkResp("tool_use",
 					toolUse(newID(), "propose_code_edit", map[string]any{
 						"file":         "config.go",
-						"find":         `"AKIAIOSFODNN7EXAMPLE"`,
+						"find":         `"AKIA…[REDACTED]…MPLE"`,
 						"replace_with": `os.Getenv("AWS_ACCESS_KEY_ID")`,
 						"env_var_name": "AWS_ACCESS_KEY_ID",
 						"rationale":    "literal -> env",
@@ -205,9 +205,10 @@ func TestPlanForFindings_IterationLimitFallsBack(t *testing.T) {
 	ag.SetGuardrails(g)
 
 	finding := scanner.Finding{
-		ID:        "f1",
-		RuleID:    "kingfisher.aws.access_key",
-		Secret:    "x",
+		ID:     "f1",
+		RuleID: "kingfisher.aws.access_key",
+		// Pick a secret that cannot trip the scrubber on incidental words.
+		Secret:    "AKIA0000ITER0000LIMIT",
 		Locations: []scanner.Location{{File: "a.go", Line: 1}},
 	}
 	items, err := ag.PlanForFindings(context.Background(), []scanner.Finding{finding})

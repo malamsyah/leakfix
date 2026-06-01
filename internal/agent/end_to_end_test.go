@@ -38,7 +38,7 @@ func TestEndToEnd_DryRunPlanContainsNoLiteralSecret(t *testing.T) {
 	mc := &scriptedClient{steps: []scriptStep{
 		step("propose_code_edit", map[string]any{
 			"file":         "config.go",
-			"find":         `"` + literalSecret + `"`,
+			"find":         `"` + plan.Placeholder(literalSecret) + `"`,
 			"replace_with": `os.Getenv("AWS_ACCESS_KEY_ID")`,
 			"env_var_name": "AWS_ACCESS_KEY_ID",
 			"rationale":    "literal -> env",
