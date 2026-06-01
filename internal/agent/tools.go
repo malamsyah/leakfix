@@ -7,8 +7,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	"github.com/malamsyah/leakfix/internal/plan"
 	"github.com/malamsyah/leakfix/internal/runbooks"
 	"github.com/malamsyah/leakfix/internal/scanner"
 )
@@ -28,16 +30,18 @@ type toolHost struct {
 	registry  *runbooks.Registry
 	maxRead   int
 	finding   scanner.Finding
+	secrets   []string // every known secret value; used to redact tool I/O
 	staged    []stagedEdit
 	finalized json.RawMessage
 }
 
-func newToolHost(repo string, reg *runbooks.Registry, maxRead int, finding scanner.Finding) *toolHost {
+func newToolHost(repo string, reg *runbooks.Registry, maxRead int, finding scanner.Finding, secrets []string) *toolHost {
 	return &toolHost{
 		repo:     repo,
 		registry: reg,
 		maxRead:  maxRead,
 		finding:  finding,
+		secrets:  secrets,
 	}
 }
 
@@ -144,7 +148,11 @@ func (h *toolHost) readFile(input json.RawMessage) (string, bool) {
 	if len(data) > h.maxRead {
 		data = data[:h.maxRead]
 	}
-	return string(data), false
+	// Redaction boundary: the LLM never sees literal secret values. Any known
+	// secret in the file content is replaced with its placeholder before
+	// returning. propose_code_edit reverses the placeholder back to the real
+	// value when validating against the file.
+	return plan.Redact(string(data), h.secrets), false
 }
 
 func (h *toolHost) assessFinding(input json.RawMessage) (string, bool) {
@@ -182,6 +190,18 @@ func (h *toolHost) proposeCodeEdit(input json.RawMessage) (string, bool) {
 		return `{"ok":false,"error_reason":"file, find, replace_with, env_var_name are all required"}`, false
 	}
 
+	// The agent reads redacted file content, so its find string typically
+	// contains placeholders. Reverse-map placeholders back to the real
+	// secret before validating against the on-disk file.
+	find, err := reversePlaceholders(args.Find, h.secrets)
+	if err != nil {
+		return fmt.Sprintf(`{"ok":false,"error_reason":%q}`, err.Error()), false
+	}
+	replace, err := reversePlaceholders(args.Replace, h.secrets)
+	if err != nil {
+		return fmt.Sprintf(`{"ok":false,"error_reason":%q}`, err.Error()), false
+	}
+
 	full, err := safeJoin(h.repo, args.File)
 	if err != nil {
 		return fmt.Sprintf(`{"ok":false,"error_reason":%q}`, err.Error()), false
@@ -190,7 +210,7 @@ func (h *toolHost) proposeCodeEdit(input json.RawMessage) (string, bool) {
 	if err != nil {
 		return fmt.Sprintf(`{"ok":false,"error_reason":%q}`, err.Error()), false
 	}
-	occurrences := strings.Count(string(data), args.Find)
+	occurrences := strings.Count(string(data), find)
 	switch occurrences {
 	case 0:
 		return `{"ok":false,"error_reason":"find string not present in file"}`, false
@@ -202,12 +222,47 @@ func (h *toolHost) proposeCodeEdit(input json.RawMessage) (string, bool) {
 
 	h.staged = append(h.staged, stagedEdit{
 		File:       args.File,
-		Find:       args.Find,
-		Replace:    args.Replace,
+		Find:       find,
+		Replace:    replace,
 		EnvVarName: args.EnvVarName,
 		Rationale:  args.Rationale,
 	})
 	return `{"ok":true}`, false
+}
+
+// reversePlaceholders translates any redaction placeholder back to its real
+// secret value. Returns an error if a placeholder is ambiguous (multiple
+// secrets share it) — the agent must then resubmit with more context.
+func reversePlaceholders(s string, secrets []string) (string, error) {
+	if s == "" || len(secrets) == 0 {
+		return s, nil
+	}
+	rev := map[string][]string{}
+	for _, sec := range secrets {
+		if sec == "" {
+			continue
+		}
+		p := plan.Placeholder(sec)
+		rev[p] = append(rev[p], sec)
+	}
+	keys := make([]string, 0, len(rev))
+	for k := range rev {
+		keys = append(keys, k)
+	}
+	// Longest first so a long placeholder is consumed before a substring one.
+	sort.Slice(keys, func(i, j int) bool { return len(keys[i]) > len(keys[j]) })
+
+	for _, p := range keys {
+		if !strings.Contains(s, p) {
+			continue
+		}
+		candidates := rev[p]
+		if len(candidates) > 1 {
+			return s, fmt.Errorf("placeholder %q is ambiguous across %d secrets; resubmit with the literal value or more surrounding context", p, len(candidates))
+		}
+		s = strings.ReplaceAll(s, p, candidates[0])
+	}
+	return s, nil
 }
 
 func (h *toolHost) finalizePlanItem(input json.RawMessage) (string, bool) {

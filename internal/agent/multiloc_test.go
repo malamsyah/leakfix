@@ -36,9 +36,9 @@ func TestMultiLocationCollapse(t *testing.T) {
 
 	mc := &scriptedClient{
 		steps: []scriptStep{
-			step("propose_code_edit", map[string]any{"file": "a.go", "find": `"AKIA0000ALPHA1234"`, "replace_with": `os.Getenv("AWS_ACCESS_KEY_ID")`, "env_var_name": "AWS_ACCESS_KEY_ID", "rationale": "x"}),
-			step("propose_code_edit", map[string]any{"file": "b.go", "find": `"AKIA0000ALPHA1234"`, "replace_with": `os.Getenv("AWS_ACCESS_KEY_ID")`, "env_var_name": "AWS_ACCESS_KEY_ID", "rationale": "x"}),
-			step("propose_code_edit", map[string]any{"file": "c.go", "find": `"AKIA0000ALPHA1234"`, "replace_with": `os.Getenv("AWS_ACCESS_KEY_ID")`, "env_var_name": "AWS_ACCESS_KEY_ID", "rationale": "x"}),
+			step("propose_code_edit", map[string]any{"file": "a.go", "find": `"AKIA…[REDACTED]…1234"`, "replace_with": `os.Getenv("AWS_ACCESS_KEY_ID")`, "env_var_name": "AWS_ACCESS_KEY_ID", "rationale": "x"}),
+			step("propose_code_edit", map[string]any{"file": "b.go", "find": `"AKIA…[REDACTED]…1234"`, "replace_with": `os.Getenv("AWS_ACCESS_KEY_ID")`, "env_var_name": "AWS_ACCESS_KEY_ID", "rationale": "x"}),
+			step("propose_code_edit", map[string]any{"file": "c.go", "find": `"AKIA…[REDACTED]…1234"`, "replace_with": `os.Getenv("AWS_ACCESS_KEY_ID")`, "env_var_name": "AWS_ACCESS_KEY_ID", "rationale": "x"}),
 			step("finalize_plan_item", map[string]any{"plan_item_json": string(finalize)}),
 		},
 	}

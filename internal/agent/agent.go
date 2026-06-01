@@ -51,9 +51,16 @@ func (a *Agent) PlanForFindings(ctx context.Context, findings []scanner.Finding)
 	totalCtx, cancel := context.WithTimeout(ctx, a.guardrails.TotalTimeout)
 	defer cancel()
 
+	// Defense-in-depth: every LLM call is wrapped in a scrubber that refuses
+	// to send any known secret literal to the API. The scope is the union of
+	// secrets across all findings in this run so cross-finding context leaks
+	// are also caught.
+	secrets := scanner.SecretValues(findings)
+	client := newScrubbingClient(a.client, secrets)
+
 	items := make([]plan.PlanItem, 0, len(findings))
 	for _, f := range findings {
-		item, err := a.planForFinding(totalCtx, f)
+		item, err := a.planForFinding(totalCtx, client, secrets, f)
 		if err != nil {
 			// Don't fail the whole run — record a fallback item with rationale.
 			items = append(items, a.fallbackItem(f, err.Error()))
@@ -64,11 +71,11 @@ func (a *Agent) PlanForFindings(ctx context.Context, findings []scanner.Finding)
 	return items, nil
 }
 
-func (a *Agent) planForFinding(ctx context.Context, f scanner.Finding) (plan.PlanItem, error) {
+func (a *Agent) planForFinding(ctx context.Context, client Client, secrets []string, f scanner.Finding) (plan.PlanItem, error) {
 	perCtx, cancel := context.WithTimeout(ctx, a.guardrails.PerFindingTimeout)
 	defer cancel()
 
-	host := newToolHost(a.repo, a.registry, a.guardrails.MaxReadFileBytes, f)
+	host := newToolHost(a.repo, a.registry, a.guardrails.MaxReadFileBytes, f, secrets)
 	messages := []Message{
 		{
 			Role:    "user",
@@ -77,7 +84,7 @@ func (a *Agent) planForFinding(ctx context.Context, f scanner.Finding) (plan.Pla
 	}
 
 	for iter := 0; iter < a.guardrails.MaxIterationsPerFinding; iter++ {
-		resp, err := a.client.Complete(perCtx, Request{
+		resp, err := client.Complete(perCtx, Request{
 			Model:     a.model,
 			System:    SystemPromptPlan,
 			Messages:  messages,
@@ -126,7 +133,7 @@ func (a *Agent) planForFinding(ctx context.Context, f scanner.Finding) (plan.Pla
 		return a.fallbackItem(f, "agent loop exceeded iterations; falling back to runbook defaults"), nil
 	}
 
-	item, err := assemblePlanItem(host.finalized, f, host.staged, a.registry)
+	item, err := assemblePlanItem(host.finalized, f, host.staged, a.registry, secrets)
 	if err != nil {
 		return a.fallbackItem(f, "agent finalize unparsable: "+err.Error()), nil
 	}
@@ -175,7 +182,7 @@ func (a *Agent) fallbackItem(f scanner.Finding, rationale string) plan.PlanItem 
 	}
 }
 
-func assemblePlanItem(raw json.RawMessage, f scanner.Finding, staged []stagedEdit, reg *runbooks.Registry) (plan.PlanItem, error) {
+func assemblePlanItem(raw json.RawMessage, f scanner.Finding, staged []stagedEdit, reg *runbooks.Registry, secrets []string) (plan.PlanItem, error) {
 	var draft struct {
 		FindingID       string          `json:"finding_id"`
 		Provider        string          `json:"provider"`
@@ -256,10 +263,21 @@ func assemblePlanItem(raw json.RawMessage, f scanner.Finding, staged []stagedEdi
 	edits := make([]plan.CodeEdit, 0, len(staged)+len(draft.CodeEdits))
 	if len(draft.CodeEdits) > 0 {
 		for _, e := range draft.CodeEdits {
+			// Agent-supplied content may use redaction placeholders (it read
+			// the file via redacted read_file). Reverse them so OldContent
+			// is the actual on-disk string the Stage 5 apply step needs.
+			oldContent, oerr := reversePlaceholders(e.OldContent, secrets)
+			if oerr != nil {
+				return plan.PlanItem{}, fmt.Errorf("code_edits[%s] old_content: %w", e.File, oerr)
+			}
+			newContent, nerr := reversePlaceholders(e.NewContent, secrets)
+			if nerr != nil {
+				return plan.PlanItem{}, fmt.Errorf("code_edits[%s] new_content: %w", e.File, nerr)
+			}
 			edits = append(edits, plan.CodeEdit{
 				File:       e.File,
-				OldContent: e.OldContent,
-				NewContent: e.NewContent,
+				OldContent: oldContent,
+				NewContent: newContent,
 				EnvVarName: e.EnvVarName,
 				Rationale:  e.Rationale,
 			})
